@@ -48,7 +48,7 @@ Pick the single most appropriate technique. Respond with a clear suggestion and 
         ]
     )
 
-    return f"🔬 GPT-Based Recommendation:\n\n{response.choices[0].message.content.strip()}"
+    return f"🔬 Vivian's Recommendation:\n\n{response.choices[0].message.content.strip()}"
 
 
 
