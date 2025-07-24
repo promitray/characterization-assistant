@@ -7,6 +7,8 @@ from utils.rag_utils import build_vector_store, retrieve_context
 from utils.chat import stream_chat_response
 from utils.excel_lookup import lookup_technique
 from utils.cot_logic import get_cot
+from utils.nanoparticles_lookup import lookup_nanoparticle_technique
+from utils.nanoparticles_cot_logic import get_cot as get_nanoparticle_cot
 
 import json
 
@@ -16,6 +18,9 @@ st.set_page_config(page_title="Chemistry Characterization Assistant", layout="wi
 st.sidebar.title("OpenAI Settings")
 api_key = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
 model = st.sidebar.selectbox("Model", ["gpt-4", "gpt-3.5-turbo"])
+
+# Analysis type selection
+analysis_type = st.sidebar.selectbox("Analysis Type", ["Small Molecules/Polymers", "Nanoparticles"])
 
 # PDF upload
 uploaded_files = st.sidebar.file_uploader(
@@ -73,22 +78,45 @@ if prompt := st.chat_input("Tell me your characterization needs..."):
                 st.write("📊 Looking up internal data store...")
 
                 convo = "\n".join([m["content"] for m in st.session_state.messages if m["role"] != "system"])
-                cot_keys = ', '.join([step['key'] for step in get_cot()])
+                
+                # Choose appropriate CoT based on analysis type
+                if analysis_type == "Nanoparticles":
+                    cot_steps = get_nanoparticle_cot()
+                else:
+                    cot_steps = get_cot()
+                
+                cot_keys = ', '.join([step['key'] for step in cot_steps])
 
-                valid_values = {
-                    "sample_type": ["Organic", "Inorganic"],
-                    "organic_type": ["Small molecule", "Polymer"],
-                    "chirality": ["Chiral", "Achiral"],
-                    "analysis_purpose": [
-                        "Molar mass measurement", "Functional group analysis", "Absorption behaviour",
-                        "Separation and quantification", "Structure elucidation", "Quality control and assurance",
-                        "Regulatory compliance and safety", "Water content determination", "Elemental analysis",
-                        "Thermodynamic analysis", "Configuration analysis", "Chiral separation"
-                    ],
-                    "sample_constraints": [
-                        "Low sample amount", "Solid", "Liquid", "Solubility issues", "No constraints"
-                    ]
-                }
+                # Choose appropriate valid values based on analysis type
+                if analysis_type == "Nanoparticles":
+                    valid_values = {
+                        "particle_type": ["Metal-based", "Polymer-based", "Biological", "Inorganic non-metallic", "Hybrid/Composite"],
+                        "matrix_type": ["Liquid", "Solid", "Powder", "Gas"],
+                        "analysis_goal": [
+                            "Particle size and distribution", "Shape and morphology", "Surface chemistry",
+                            "Elemental composition", "Crystallinity", "Zeta potential", "Stability and agglomeration",
+                            "Functionalization verification", "Optical/electronic properties", "Magnetic properties",
+                            "Surface area and porosity", "Contaminant or impurity analysis"
+                        ],
+                        "sample_constraints": ["Low concentration", "Polydisperse sample", "High ionic strength", "Fluorescent labeling", "No constraints"],
+                        "measurement_conditions": ["Dry state", "In solution", "Real-time monitoring", "Cryogenic conditions", "Ambient conditions"],
+                        "instrument_access": ["DLS", "NTA", "SEM", "TEM", "AFM", "XPS", "XRD", "BET", "FTIR", "Raman", "UV-Vis", "Zeta sizer", "ICP-MS"]
+                    }
+                else:
+                    valid_values = {
+                        "sample_type": ["Organic", "Inorganic"],
+                        "organic_type": ["Small molecule", "Polymer"],
+                        "chirality": ["Chiral", "Achiral"],
+                        "analysis_purpose": [
+                            "Molar mass measurement", "Functional group analysis", "Absorption behaviour",
+                            "Separation and quantification", "Structure elucidation", "Quality control and assurance",
+                            "Regulatory compliance and safety", "Water content determination", "Elemental analysis",
+                            "Thermodynamic analysis", "Configuration analysis", "Chiral separation"
+                        ],
+                        "sample_constraints": [
+                            "Low sample amount", "Solid", "Liquid", "Solubility issues", "No constraints"
+                        ]
+                    }
 
                 extraction_prompt = (
     f"You are an expert assistant helping a chemist match user inputs to known database categories.\n"
@@ -115,7 +143,11 @@ if prompt := st.chat_input("Tell me your characterization needs..."):
                 st.session_state.last_cot = structured_data
                 st.write("🧪 Normalized CoT Data:", structured_data)
 
-                required_fields = ["sample_type", "organic_type", "analysis_purpose"]
+                # Choose required fields based on analysis type
+                if analysis_type == "Nanoparticles":
+                    required_fields = ["particle_type", "matrix_type", "analysis_goal"]
+                else:
+                    required_fields = ["sample_type", "organic_type", "analysis_purpose"]
                 missing_fields = [k for k in required_fields if not structured_data.get(k)]
 
                 if missing_fields and st.session_state.clarification_count < 1:
@@ -130,7 +162,11 @@ if prompt := st.chat_input("Tell me your characterization needs..."):
 
                 st.session_state.clarification_count = 0
 
-                reco = lookup_technique(structured_data, client)
+                # Choose appropriate lookup function based on analysis type
+                if analysis_type == "Nanoparticles":
+                    reco = lookup_nanoparticle_technique(structured_data, client)
+                else:
+                    reco = lookup_technique(structured_data, client)
                 st.session_state.last_excel_result = reco
                 if st.session_state.vector_store:
                  rag_info = retrieve_context(st.session_state.vector_store, prompt)
