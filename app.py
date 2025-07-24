@@ -59,7 +59,7 @@ for i, msg in enumerate(st.session_state.messages[1:], start=1):
         st.chat_message(msg["role"]).write(msg["content"])
 
 # Main chat input
-if prompt := st.chat_input("Ask something about your documents..."):
+if prompt := st.chat_input("Tell me your characterization needs..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
